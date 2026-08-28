@@ -364,7 +364,7 @@ async function triggerSpin() {
   isSpinning = true;
 
   const visitor_name = document.getElementById('visitor-name').value;
-  const visitor_phone = document.getElementById('visitor-phone').value;
+  const visitor_phone = '-';
   const booth_name = getSelectedBooth();
   const operator_name = currentUser ? currentUser.username : 'operator1';
 
@@ -476,7 +476,6 @@ function triggerConfetti() {
 function closeWinnerModal() {
   document.getElementById('winner-modal').classList.add('hidden');
   document.getElementById('visitor-name').value = '';
-  document.getElementById('visitor-phone').value = '';
 }
 
 // Admin Panel Stock Grid Rendering (Only Superadmin can edit!)
@@ -549,8 +548,7 @@ function renderHistoryTable() {
         <td class="p-2 text-slate-300 font-mono text-[10px]">${dateStr} ${timeStr}</td>
         <td class="p-2 font-semibold text-amber-300">${r.booth_name || 'Booth 1'}</td>
         <td class="p-2 text-white font-medium">
-          <span class="${isClaimed ? 'line-through text-slate-400' : ''}">${r.visitor_name || 'Pengunjung'}</span> 
-          <span class="text-slate-500 text-[10px]">(${r.visitor_phone || '-'})</span>
+          <span class="${isClaimed ? 'line-through text-slate-400' : ''}">${r.visitor_name || 'Pengunjung'}</span>
         </td>
         <td class="p-2 font-bold ${isClaimed ? 'text-slate-400' : 'text-emerald-400'}">${r.prize_name}</td>
         <td class="p-2 text-center">

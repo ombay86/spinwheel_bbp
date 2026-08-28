@@ -86,11 +86,11 @@
           <div class="relative">
             <i class="fa-solid fa-user absolute left-3 top-3 text-slate-400 text-xs"></i>
             <select id="login-username-select" onchange="autoFillPasswordSuggestion()" class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-amber-300 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500">
-              <option value="operator1">operator1 (Operasi Tangkap Tawa)</option>
-              <option value="operator2">operator2 (Benar Benar Podcast Live)</option>
-              <option value="operator3">operator3 (Game Arena Aksi)</option>
-              <option value="operator4">operator4 (Game Integritas)</option>
-              <option value="operator5">operator5 (Game Tembak Koruptor)</option>
+              <option value="operator1">operator1 (Arena Aksi)</option>
+              <option value="operator2">operator2 (Game Integritas)</option>
+              <option value="operator3">operator3 (Tembak Koruptor)</option>
+              <option value="operator4">operator4 (Ular Tangga)</option>
+              <option value="operator5">operator5 (Find The Corruptor)</option>
               <option value="admin">admin (Dashboard Admin)</option>
               <option value="superadmin">superadmin (Super Admin Dashboard)</option>
             </select>
@@ -179,11 +179,11 @@
           <div class="flex items-center space-x-2">
             <span class="font-bold text-slate-400">Booth:</span>
             <select id="booth-select" onchange="onBoothChange()" class="bg-slate-900 border border-amber-500/50 text-amber-300 font-bold text-xs rounded-lg px-2 py-1 focus:outline-none">
-              <option value="Operasi Tangkap Tawa">1. Operasi Tangkap Tawa</option>
-              <option value="Benar Benar Podcast Live">2. Benar Benar Podcast Live</option>
-              <option value="Game Arena Aksi">3. Game Arena Aksi</option>
-              <option value="Game Integritas">4. Game Integritas</option>
-              <option value="Game Tembak Koruptor">5. Game Tembak Koruptor</option>
+              <option value="Arena Aksi">1. Arena Aksi</option>
+              <option value="Game Integritas">2. Game Integritas</option>
+              <option value="Tembak Koruptor">3. Tembak Koruptor</option>
+              <option value="Ular Tangga">4. Ular Tangga</option>
+              <option value="Find The Corruptor">5. Find The Corruptor</option>
               <option value="Custom">Custom...</option>
             </select>
             <input type="text" id="custom-booth-input" placeholder="Nama..." class="hidden bg-slate-900 border border-slate-600 text-xs rounded-lg px-2 py-1 text-white w-24">
@@ -199,13 +199,8 @@
         </div>
 
         <!-- Visitor Form -->
-        <div class="flex-none bg-slate-900/60 rounded-xl p-2 border border-slate-800 flex items-center gap-2 text-xs">
-          <div class="flex-1">
-            <input type="text" id="visitor-name" placeholder="Nama Pengunjung (Opsional)" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500">
-          </div>
-          <div class="w-32 sm:w-40">
-            <input type="text" id="visitor-phone" placeholder="No HP / ID" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500">
-          </div>
+        <div class="flex-none bg-slate-900/60 rounded-xl p-2 border border-slate-800 text-xs">
+          <input type="text" id="visitor-name" placeholder="Nama Pengunjung (Opsional)" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500">
         </div>
 
         <!-- SPINWHEEL DISPLAY AREA -->

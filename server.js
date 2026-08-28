@@ -73,11 +73,11 @@ db.serialize(() => {
 
   // Seed default operators, admin & superadmin
   const initialUsers = [
-    { username: 'operator1', password: 'operator1', role: 'operator', booth_name: 'Operasi Tangkap Tawa' },
-    { username: 'operator2', password: 'operator2', role: 'operator', booth_name: 'Benar Benar Podcast Live' },
-    { username: 'operator3', password: 'operator3', role: 'operator', booth_name: 'Game Arena Aksi' },
-    { username: 'operator4', password: 'operator4', role: 'operator', booth_name: 'Game Integritas' },
-    { username: 'operator5', password: 'operator5', role: 'operator', booth_name: 'Game Tembak Koruptor' },
+    { username: 'operator1', password: 'operator1', role: 'operator', booth_name: 'Arena Aksi' },
+    { username: 'operator2', password: 'operator2', role: 'operator', booth_name: 'Game Integritas' },
+    { username: 'operator3', password: 'operator3', role: 'operator', booth_name: 'Tembak Koruptor' },
+    { username: 'operator4', password: 'operator4', role: 'operator', booth_name: 'Ular Tangga' },
+    { username: 'operator5', password: 'operator5', role: 'operator', booth_name: 'Find The Corruptor' },
     { username: 'admin', password: 'admin123', role: 'admin', booth_name: 'Admin Center' },
     { username: 'superadmin', password: 'Gms210478', role: 'superadmin', booth_name: 'Super Admin Center' }
   ];
@@ -212,13 +212,13 @@ app.post('/api/auth/login', (req, res) => {
 
       if (uname.startsWith('operator') && (pass === uname || pass === 'operator123' || pass === 'operator')) {
         const boothMap = {
-          'operator1': 'Operasi Tangkap Tawa',
-          'operator2': 'Benar Benar Podcast Live',
-          'operator3': 'Game Arena Aksi',
-          'operator4': 'Game Integritas',
-          'operator5': 'Game Tembak Koruptor'
+          'operator1': 'Arena Aksi',
+          'operator2': 'Game Integritas',
+          'operator3': 'Tembak Koruptor',
+          'operator4': 'Ular Tangga',
+          'operator5': 'Find The Corruptor'
         };
-        const booth = boothMap[uname] || 'Operasi Tangkap Tawa';
+        const booth = boothMap[uname] || 'Arena Aksi';
         return res.json({
           success: true,
           user: { id: 0, username: uname, role: 'operator', booth_name: booth }
