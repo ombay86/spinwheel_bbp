@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full w-full overflow-hidden">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Benar Benar Podcast - Spinwheel Hadiah</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Canvas Confetti CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+    
+    html, body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+      touch-action: manipulation;
+    }
+
+    .glow-gold {
+      box-shadow: 0 0 25px rgba(234, 179, 8, 0.4);
+    }
+    .glow-purple {
+      box-shadow: 0 0 35px rgba(168, 85, 247, 0.4);
+    }
+
+    .wheel-pointer {
+      width: 0;
+      height: 0;
+      border-left: 16px solid transparent;
+      border-right: 16px solid transparent;
+      border-top: 28px solid #ef4444;
+      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
+    }
+  </style>
+</head>
+<body class="h-full w-full flex flex-col justify-between overflow-hidden select-none">
+
+  <!-- FULLSCREEN LANDING LOGIN VIEW (INITIAL SCREEN) -->
+  <div id="view-login" class="h-full w-full flex flex-col items-center justify-center p-4 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 overflow-y-auto">
+    <div class="bg-slate-800/90 backdrop-blur rounded-3xl p-6 sm:p-8 border border-slate-700 max-w-sm w-full text-center space-y-5 shadow-2xl glow-purple">
+      
+      <!-- Benar Benar Podcast Logo -->
+      <div class="flex flex-col items-center justify-center space-y-1">
+        <img src="/images/Logo Benar Benar_Podcast.png" alt="Benar Benar Podcast Logo" class="h-16 sm:h-20 w-auto object-contain drop-shadow-lg">
+        <p class="text-xs text-amber-400 font-bold">Spinwheel Pengundian Hadiah</p>
+      </div>
+
+      <form onsubmit="handleMainLogin(event)" class="space-y-3.5 text-left">
+        <div>
+          <label class="block text-[11px] font-bold text-slate-300 mb-1 uppercase tracking-wider">Username:</label>
+          <div class="relative">
+            <i class="fa-solid fa-user absolute left-3 top-3 text-slate-400 text-xs"></i>
+            <select id="login-username-select" onchange="autoFillPasswordSuggestion()" class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-amber-300 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <option value="operator1">operator1 (Operasi Tangkap Tawa)</option>
+              <option value="operator2">operator2 (Benar Benar Podcast Live)</option>
+              <option value="operator3">operator3 (Game Arena Aksi)</option>
+              <option value="operator4">operator4 (Game Integritas)</option>
+              <option value="operator5">operator5 (Game Tembak Koruptor)</option>
+              <option value="admin">admin (Dashboard Admin)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-bold text-slate-300 mb-1 uppercase tracking-wider">Password:</label>
+          <div class="relative">
+            <i class="fa-solid fa-lock absolute left-3 top-3 text-slate-400 text-xs"></i>
+            <input type="password" id="login-password" required placeholder="Masukkan password..." class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500">
+          </div>
+        </div>
+
+        <p id="main-login-error" class="text-xs text-rose-400 font-semibold hidden text-center"></p>
+
+        <button type="submit" class="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 active:scale-95 text-slate-950 font-black text-sm rounded-xl shadow-lg transition transform flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-right-to-bracket text-base"></i>
+          <span>MASUK SEKARANG</span>
+        </button>
+      </form>
+
+      <!-- Account Info Hint -->
+      <div class="bg-slate-950/70 rounded-2xl p-3 text-[11px] text-slate-300 border border-slate-800 text-left space-y-1">
+        <div class="font-bold text-amber-400 text-xs border-b border-slate-800 pb-1 mb-1 flex items-center space-x-1">
+          <i class="fa-solid fa-circle-info"></i>
+          <span>Daftar Akun Login:</span>
+        </div>
+        <div>- <strong class="text-white">Operator 1 - 5:</strong> <code class="text-amber-300 font-mono">operator1</code> .. <code class="text-amber-300 font-mono">operator5</code></div>
+        <div>- <strong class="text-white">Password Operator:</strong> <code class="text-amber-300 font-mono">operator1</code> (atau <code class="text-amber-300 font-mono">operator123</code>)</div>
+        <div>- <strong class="text-white">Admin Dashboard:</strong> <code class="text-amber-300 font-mono">admin</code> (Pass: <code class="text-amber-300 font-mono">admin123</code>)</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MAIN APP VIEW (HIDDEN UNTIL LOGGED IN) -->
+  <div id="view-app" class="hidden h-full w-full flex flex-col justify-between overflow-hidden">
+    
+    <!-- HEADER NAVBAR (Fixed top) -->
+    <header class="flex-none bg-slate-900/90 backdrop-blur border-b border-slate-800 px-3 py-2 z-30">
+      <div class="max-w-6xl mx-auto flex items-center justify-between">
+        
+        <!-- Logo & Subtitle -->
+        <div class="flex flex-col items-start justify-center">
+          <img src="/images/Logo Benar Benar_Podcast.png" alt="Logo" class="h-7 sm:h-8 w-auto object-contain">
+          <p class="text-[10px] text-amber-400 font-bold leading-tight mt-0.5">Spinwheel Pengundian Hadiah</p>
+        </div>
+
+        <!-- Navigation & Session Info -->
+        <div class="flex items-center space-x-2">
+          <div id="nav-tabs-container" class="flex items-center space-x-1">
+            <button id="nav-operator" onclick="switchTab('operator')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition bg-amber-500 text-slate-950 shadow">
+              <i class="fa-solid fa-gamepad mr-1"></i> Operator
+            </button>
+            <button id="nav-admin" onclick="switchTab('admin')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white hover:bg-slate-800">
+              <i class="fa-solid fa-chart-pie mr-1"></i> Admin
+            </button>
+          </div>
+
+          <button onclick="openQrModal()" class="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-amber-400 text-xs font-bold" title="Scan QR Code HP">
+            <i class="fa-solid fa-qrcode"></i>
+          </button>
+
+          <!-- User Badge & Logout -->
+          <div class="flex items-center space-x-1.5 pl-1 border-l border-slate-800">
+            <span id="user-badge" class="hidden sm:inline-block text-[11px] font-bold text-amber-300 bg-slate-800 px-2 py-1 rounded-lg border border-slate-700">
+              👤 operator1
+            </span>
+            <button onclick="logout()" class="p-1.5 px-2 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-bold transition flex items-center space-x-1" title="Keluar">
+              <i class="fa-solid fa-right-from-bracket"></i>
+              <span class="hidden sm:inline">Logout</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-1 w-full max-w-5xl mx-auto p-2 sm:p-3 flex flex-col min-h-0 overflow-hidden">
+
+      <!-- OPERATOR TAB -->
+      <div id="tab-operator" class="h-full flex flex-col justify-between space-y-2 min-h-0 overflow-hidden">
+        
+        <!-- Booth & Operator Info Card -->
+        <div class="flex-none bg-slate-800/80 rounded-xl p-2 border border-slate-700 shadow flex items-center justify-between gap-2 text-xs">
+          <div class="flex items-center space-x-2">
+            <span class="font-bold text-slate-400">Booth:</span>
+            <select id="booth-select" onchange="onBoothChange()" class="bg-slate-900 border border-amber-500/50 text-amber-300 font-bold text-xs rounded-lg px-2 py-1 focus:outline-none">
+              <option value="Operasi Tangkap Tawa">1. Operasi Tangkap Tawa</option>
+              <option value="Benar Benar Podcast Live">2. Benar Benar Podcast Live</option>
+              <option value="Game Arena Aksi">3. Game Arena Aksi</option>
+              <option value="Game Integritas">4. Game Integritas</option>
+              <option value="Game Tembak Koruptor">5. Game Tembak Koruptor</option>
+              <option value="Custom">Custom...</option>
+            </select>
+            <input type="text" id="custom-booth-input" placeholder="Nama..." class="hidden bg-slate-900 border border-slate-600 text-xs rounded-lg px-2 py-1 text-white w-24">
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <input type="text" id="operator-name-input" placeholder="Operator..." value="operator1" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2 py-1 w-24 focus:outline-none" readonly>
+            <button onclick="toggleStockDrawer()" class="bg-slate-700 hover:bg-slate-600 text-amber-300 text-[11px] font-bold px-2.5 py-1 rounded-lg flex items-center space-x-1">
+              <i class="fa-solid fa-box-open"></i>
+              <span>Stok: <span id="total-stock-badge">...</span></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Visitor Form -->
+        <div class="flex-none bg-slate-900/60 rounded-xl p-2 border border-slate-800 flex items-center gap-2 text-xs">
+          <div class="flex-1">
+            <input type="text" id="visitor-name" placeholder="Nama Pengunjung (Opsional)" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500">
+          </div>
+          <div class="w-32 sm:w-40">
+            <input type="text" id="visitor-phone" placeholder="No HP / ID" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500">
+          </div>
+        </div>
+
+        <!-- SPINWHEEL DISPLAY AREA -->
+        <div class="flex-1 min-h-0 flex flex-col items-center justify-center relative my-1 overflow-hidden">
+          <div class="relative z-20 flex flex-col items-center -mb-2">
+            <div class="wheel-pointer"></div>
+          </div>
+          <div class="relative glow-purple rounded-full p-1.5 bg-gradient-to-b from-amber-500/20 to-purple-600/20 border-2 border-amber-500/40 max-h-[calc(100%-40px)] aspect-square flex items-center justify-center">
+            <canvas id="wheelCanvas" width="450" height="450" class="max-h-full max-w-full aspect-square rounded-full cursor-pointer object-contain"></canvas>
+          </div>
+        </div>
+
+        <!-- Spin Button -->
+        <div class="flex-none w-full max-w-xs mx-auto pb-1">
+          <button id="spin-btn" onclick="triggerSpin()" class="w-full py-3 px-6 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 active:scale-95 text-slate-950 font-black text-lg tracking-wider rounded-xl shadow-xl transition transform flex items-center justify-center space-x-2 glow-gold">
+            <i class="fa-solid fa-play text-xl"></i>
+            <span>PUTAR WHEEL!</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- ADMIN TAB -->
+      <div id="tab-admin" class="hidden h-full flex flex-col space-y-3 min-h-0 overflow-y-auto pr-1">
+        <div class="flex-none bg-slate-800/80 rounded-xl p-3 border border-slate-700 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-sm font-bold text-white">Dashboard Admin & Manajemen Stok</h2>
+            <p class="text-[11px] text-slate-400">Pantau stok real-time, reset data, dan download laporan pemenang.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center space-x-1 shadow">
+              <i class="fa-solid fa-file-excel"></i>
+              <span>Export Excel</span>
+            </button>
+            <button onclick="resetStockPrompt()" class="bg-rose-600/80 hover:bg-rose-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center space-x-1">
+              <i class="fa-solid fa-rotate-left"></i>
+              <span>Reset Stok</span>
+            </button>
+            <button onclick="loadPrizesAndHistory()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-xs px-3 py-1.5 rounded-lg flex items-center space-x-1">
+              <i class="fa-solid fa-sync"></i>
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- PRIZE STOCK GRID -->
+        <div class="flex-none">
+          <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2 flex items-center space-x-1.5">
+            <i class="fa-solid fa-boxes-stacked"></i>
+            <span>Daftar Stok Hadiah (19 Item)</span>
+          </h3>
+          <div id="stock-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- WINNER HISTORY TABLE -->
+        <div class="flex-1 bg-slate-900 rounded-xl p-3 border border-slate-800 space-y-2 flex flex-col min-h-[220px]">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center space-x-1.5">
+              <i class="fa-solid fa-trophy"></i>
+              <span>Riwayat Pemenang Pengundian</span>
+            </h3>
+            <div class="w-48">
+              <input type="text" id="history-search" onkeyup="filterHistoryTable()" placeholder="Cari pemenang..." class="w-full bg-slate-800 border border-slate-700 text-xs rounded-lg px-2.5 py-1 text-white focus:outline-none">
+            </div>
+          </div>
+
+          <div class="flex-1 overflow-y-auto rounded-lg border border-slate-800">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-800 text-slate-300 uppercase font-bold sticky top-0">
+                <tr>
+                  <th class="p-2">#</th>
+                  <th class="p-2">Waktu</th>
+                  <th class="p-2">Booth</th>
+                  <th class="p-2">Pengunjung</th>
+                  <th class="p-2">Operator</th>
+                  <th class="p-2">Hadiah</th>
+                </tr>
+              </thead>
+              <tbody id="history-tbody" class="divide-y divide-slate-800 text-slate-300">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="flex-none bg-slate-950 py-1.5 px-3 border-t border-slate-900 text-center text-[10px] text-slate-500">
+      Benar Benar Podcast Spinwheel Hadiah &copy; 2026
+    </footer>
+  </div>
+
+  <!-- WINNER RESULT ANNOUNCEMENT MODAL -->
+  <div id="winner-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="bg-gradient-to-b from-slate-800 to-slate-900 rounded-3xl p-5 border-2 border-amber-500 max-w-xs w-full text-center space-y-4 shadow-2xl">
+      <div class="w-16 h-16 mx-auto rounded-full bg-gradient-to-tr from-amber-400 to-rose-500 flex items-center justify-center text-3xl shadow-lg glow-gold">
+        🎁
+      </div>
+      <div>
+        <span class="text-[10px] font-bold tracking-widest text-amber-400 uppercase">SELAMAT!</span>
+        <h2 class="text-xl font-black text-white mt-0.5" id="win-prize-name">Nama Hadiah</h2>
+        <p class="text-xs text-slate-400 mt-1.5">Dimenangkan oleh <span id="win-visitor-name" class="text-amber-300 font-bold">Visitor</span> di <span id="win-booth-name" class="text-white font-semibold">Booth 1</span></p>
+      </div>
+
+      <div class="bg-slate-950/60 rounded-xl p-2 text-xs text-slate-400 border border-slate-800">
+        Sisa stok item ini: <span id="win-prize-stock" class="font-bold text-amber-400">0</span> pcs
+      </div>
+
+      <button onclick="closeWinnerModal()" class="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg transition">
+        SERAHKAN HADIAH & LANJUT
+      </button>
+    </div>
+  </div>
+
+  <!-- QR CODE MODAL FOR MOBILE OPERATOR ACCESS -->
+  <div id="qr-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="bg-slate-800 rounded-3xl p-5 border border-slate-700 max-w-xs w-full text-center space-y-3 shadow-2xl">
+      <div class="flex justify-between items-center">
+        <h3 class="text-sm font-bold text-white flex items-center space-x-1.5">
+          <i class="fa-solid fa-mobile-screen text-amber-400"></i>
+          <span>Scan Akses Smartphone</span>
+        </h3>
+        <button onclick="closeQrModal()" class="text-slate-400 hover:text-white text-base font-bold">&times;</button>
+      </div>
+
+      <p class="text-xs text-slate-300">Scan QR Code dari kamera HP (Wi-Fi sama):</p>
+
+      <div class="bg-white p-2 rounded-2xl inline-block shadow-inner">
+        <img id="qr-image" src="" alt="QR Code URL" class="w-40 h-40 mx-auto">
+      </div>
+
+      <div class="bg-slate-900 rounded-xl p-2 border border-slate-700 text-left">
+        <div class="text-[9px] text-slate-400 font-semibold uppercase">URL Akses HP:</div>
+        <div id="qr-url-text" class="text-xs font-mono font-bold text-amber-400 break-all select-all">http://...</div>
+      </div>
+
+      <button onclick="closeQrModal()" class="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs rounded-xl">
+        Tutup
+      </button>
+    </div>
+  </div>
+
+  <!-- STOCK DRAWER MODAL FOR OPERATOR -->
+  <div id="stock-drawer" class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm hidden flex justify-end">
+    <div class="bg-slate-900 w-full max-w-xs h-full p-4 border-l border-slate-800 flex flex-col justify-between space-y-3">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+        <h3 class="font-bold text-xs text-amber-400 flex items-center space-x-1.5">
+          <i class="fa-solid fa-boxes-stacked"></i>
+          <span>Ringkasan Stok Hadiah</span>
+        </h3>
+        <button onclick="toggleStockDrawer()" class="text-slate-400 hover:text-white text-base font-bold">&times;</button>
+      </div>
+
+      <div id="drawer-stock-list" class="flex-1 overflow-y-auto space-y-1.5 pr-1 text-xs">
+        <!-- Dynamically populated -->
+      </div>
+
+      <button onclick="toggleStockDrawer()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-lg">
+        Tutup
+      </button>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="audio.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

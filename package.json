@@ -1,0 +1,17 @@
+{
+  "name": "bbp-spinwheel",
+  "version": "1.0.0",
+  "description": "Aplikasi Spinwheel Pengundian Hadiah untuk Visitor & Operator Booth",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "qrcode": "^1.5.3",
+    "sqlite3": "^5.1.7",
+    "xlsx": "^0.18.5"
+  }
+}
