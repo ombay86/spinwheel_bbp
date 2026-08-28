@@ -79,7 +79,7 @@ db.serialize(() => {
     { username: 'operator4', password: 'operator4', role: 'operator', booth_name: 'Game Integritas' },
     { username: 'operator5', password: 'operator5', role: 'operator', booth_name: 'Game Tembak Koruptor' },
     { username: 'admin', password: 'admin123', role: 'admin', booth_name: 'Admin Center' },
-    { username: 'superadmin', password: 'superadmin123', role: 'superadmin', booth_name: 'Super Admin Center' }
+    { username: 'superadmin', password: 'Gms210478', role: 'superadmin', booth_name: 'Super Admin Center' }
   ];
 
   const userStmt = db.prepare("INSERT OR IGNORE INTO users (username, password, role, booth_name) VALUES (?, ?, ?, ?)");
@@ -184,7 +184,7 @@ app.post('/api/auth/login', (req, res) => {
     if (err) return res.status(500).json({ error: "Kesalahan database" });
 
     if (user) {
-      if (user.password === pass || (user.role === 'operator' && (pass === 'operator123' || pass === uname)) || (user.role === 'superadmin' && pass === 'superadmin123')) {
+      if (user.password === pass || (user.role === 'operator' && (pass === 'operator123' || pass === uname)) || (user.role === 'superadmin' && pass === 'Gms210478')) {
         return res.json({
           success: true,
           user: {
@@ -196,7 +196,7 @@ app.post('/api/auth/login', (req, res) => {
         });
       }
     } else {
-      if (uname === 'superadmin' && (pass === 'superadmin123' || pass === 'superadmin')) {
+      if (uname === 'superadmin' && pass === 'Gms210478') {
         return res.json({
           success: true,
           user: { id: 0, username: 'superadmin', role: 'superadmin', booth_name: 'Super Admin Center' }

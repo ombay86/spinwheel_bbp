@@ -55,7 +55,7 @@ function autoFillPasswordSuggestion() {
   if (uname === 'admin') {
     passInput.value = 'admin123';
   } else if (uname === 'superadmin') {
-    passInput.value = 'superadmin123';
+    passInput.value = '';
   } else {
     passInput.value = uname; // operator1, operator2, etc.
   }
