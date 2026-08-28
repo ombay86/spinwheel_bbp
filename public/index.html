@@ -14,6 +14,9 @@
   <!-- Canvas Confetti CDN -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
+  <!-- SweetAlert2 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
     
@@ -44,6 +47,25 @@
       border-top: 28px solid #ef4444;
       filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
     }
+    
+    /* Dark Theme SweetAlert Customization */
+    .swal2-popup-dark {
+      background-color: #1e293b !important;
+      color: #f8fafc !important;
+      border: 1px solid #334155 !important;
+      border-radius: 1.5rem !important;
+    }
+    .swal2-popup-dark .swal2-title {
+      color: #f8fafc !important;
+    }
+    .swal2-popup-dark .swal2-html-container {
+      color: #cbd5e1 !important;
+    }
+    .swal2-popup-dark input, .swal2-popup-dark select {
+      background-color: #0f172a !important;
+      color: #f8fafc !important;
+      border-color: #475569 !important;
+    }
   </style>
 </head>
 <body class="h-full w-full flex flex-col justify-between overflow-hidden select-none">
@@ -70,6 +92,7 @@
               <option value="operator4">operator4 (Game Integritas)</option>
               <option value="operator5">operator5 (Game Tembak Koruptor)</option>
               <option value="admin">admin (Dashboard Admin)</option>
+              <option value="superadmin">superadmin (Super Admin Dashboard)</option>
             </select>
           </div>
         </div>
@@ -96,9 +119,9 @@
           <i class="fa-solid fa-circle-info"></i>
           <span>Daftar Akun Login:</span>
         </div>
-        <div>- <strong class="text-white">Operator 1 - 5:</strong> <code class="text-amber-300 font-mono">operator1</code> .. <code class="text-amber-300 font-mono">operator5</code></div>
-        <div>- <strong class="text-white">Password Operator:</strong> <code class="text-amber-300 font-mono">operator1</code> (atau <code class="text-amber-300 font-mono">operator123</code>)</div>
-        <div>- <strong class="text-white">Admin Dashboard:</strong> <code class="text-amber-300 font-mono">admin</code> (Pass: <code class="text-amber-300 font-mono">admin123</code>)</div>
+        <div>- <strong class="text-white">Operator 1-5:</strong> <code class="text-amber-300 font-mono">operator1</code> .. <code class="text-amber-300 font-mono">operator5</code></div>
+        <div>- <strong class="text-white">Admin:</strong> <code class="text-amber-300 font-mono">admin</code> (Pass: <code class="text-amber-300 font-mono">admin123</code>)</div>
+        <div>- <strong class="text-white">Super Admin:</strong> <code class="text-amber-300 font-mono">superadmin</code> (Pass: <code class="text-amber-300 font-mono">superadmin123</code>)</div>
       </div>
 
     </div>
@@ -124,7 +147,7 @@
               <i class="fa-solid fa-gamepad mr-1"></i> Operator
             </button>
             <button id="nav-admin" onclick="switchTab('admin')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white hover:bg-slate-800">
-              <i class="fa-solid fa-chart-pie mr-1"></i> Admin
+              <i class="fa-solid fa-chart-pie mr-1"></i> Dashboard Admin
             </button>
           </div>
 
@@ -206,21 +229,32 @@
 
       </div>
 
-      <!-- ADMIN TAB -->
+      <!-- ADMIN & SUPERADMIN TAB (REORDERED: HISTORY TOP, STOCK BOTTOM) -->
       <div id="tab-admin" class="hidden h-full flex flex-col space-y-3 min-h-0 overflow-y-auto pr-1">
+        
+        <!-- Action Header -->
         <div class="flex-none bg-slate-800/80 rounded-xl p-3 border border-slate-700 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 class="text-sm font-bold text-white">Dashboard Admin & Manajemen Stok</h2>
-            <p class="text-[11px] text-slate-400">Pantau stok real-time, reset data, dan download laporan pemenang.</p>
+            <h2 class="text-sm font-bold text-white flex items-center space-x-2">
+              <i class="fa-solid fa-chart-line text-amber-400"></i>
+              <span id="admin-title-role">Dashboard Admin</span>
+            </h2>
+            <p class="text-[11px] text-slate-400">Kelola riwayat pengambilan pemenang & stok barang.</p>
           </div>
           <div class="flex flex-wrap gap-2">
+            <!-- Superadmin Only Actions -->
+            <button id="btn-add-prize" onclick="openAddPrizeSweetAlert()" class="hidden bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-lg flex items-center space-x-1 shadow">
+              <i class="fa-solid fa-plus"></i>
+              <span>Tambah Hadiah</span>
+            </button>
+            <button id="btn-reset-stock" onclick="resetStockSweetAlert()" class="hidden bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center space-x-1">
+              <i class="fa-solid fa-rotate-left"></i>
+              <span>Reset Stok</span>
+            </button>
+            <!-- All Admins -->
             <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center space-x-1 shadow">
               <i class="fa-solid fa-file-excel"></i>
               <span>Export Excel</span>
-            </button>
-            <button onclick="resetStockPrompt()" class="bg-rose-600/80 hover:bg-rose-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center space-x-1">
-              <i class="fa-solid fa-rotate-left"></i>
-              <span>Reset Stok</span>
             </button>
             <button onclick="loadPrizesAndHistory()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-xs px-3 py-1.5 rounded-lg flex items-center space-x-1">
               <i class="fa-solid fa-sync"></i>
@@ -229,30 +263,19 @@
           </div>
         </div>
 
-        <!-- PRIZE STOCK GRID -->
-        <div class="flex-none">
-          <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2 flex items-center space-x-1.5">
-            <i class="fa-solid fa-boxes-stacked"></i>
-            <span>Daftar Stok Hadiah (19 Item)</span>
-          </h3>
-          <div id="stock-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            <!-- Dynamically populated -->
-          </div>
-        </div>
-
-        <!-- WINNER HISTORY TABLE -->
-        <div class="flex-1 bg-slate-900 rounded-xl p-3 border border-slate-800 space-y-2 flex flex-col min-h-[220px]">
+        <!-- 1. WINNER HISTORY TABLE (POSITIONED TOP) -->
+        <div class="flex-none bg-slate-900 rounded-xl p-3 border border-slate-800 space-y-2 flex flex-col min-h-[260px]">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center space-x-1.5">
               <i class="fa-solid fa-trophy"></i>
-              <span>Riwayat Pemenang Pengundian</span>
+              <span>Riwayat Pemenang Pengundian (Centang Hijau = Hadiah Sudah Diambil)</span>
             </h3>
             <div class="w-48">
-              <input type="text" id="history-search" onkeyup="filterHistoryTable()" placeholder="Cari pemenang..." class="w-full bg-slate-800 border border-slate-700 text-xs rounded-lg px-2.5 py-1 text-white focus:outline-none">
+              <input type="text" id="history-search" onkeyup="filterHistoryTable()" placeholder="Cari nama/booth..." class="w-full bg-slate-800 border border-slate-700 text-xs rounded-lg px-2.5 py-1 text-white focus:outline-none">
             </div>
           </div>
 
-          <div class="flex-1 overflow-y-auto rounded-lg border border-slate-800">
+          <div class="max-h-64 overflow-y-auto rounded-lg border border-slate-800">
             <table class="w-full text-left text-xs">
               <thead class="bg-slate-800 text-slate-300 uppercase font-bold sticky top-0">
                 <tr>
@@ -260,8 +283,8 @@
                   <th class="p-2">Waktu</th>
                   <th class="p-2">Booth</th>
                   <th class="p-2">Pengunjung</th>
-                  <th class="p-2">Operator</th>
                   <th class="p-2">Hadiah</th>
+                  <th class="p-2 text-center">Status / Konfirmasi</th>
                 </tr>
               </thead>
               <tbody id="history-tbody" class="divide-y divide-slate-800 text-slate-300">
@@ -270,6 +293,18 @@
             </table>
           </div>
         </div>
+
+        <!-- 2. PRIZE STOCK GRID (POSITIONED BOTTOM) -->
+        <div class="flex-none pb-4">
+          <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2 flex items-center space-x-1.5">
+            <i class="fa-solid fa-boxes-stacked"></i>
+            <span>Daftar Stok Hadiah</span>
+          </h3>
+          <div id="stock-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
       </div>
 
     </main>
@@ -296,8 +331,8 @@
         Sisa stok item ini: <span id="win-prize-stock" class="font-bold text-amber-400">0</span> pcs
       </div>
 
-      <button onclick="closeWinnerModal()" class="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg transition">
-        SERAHKAN HADIAH & LANJUT
+      <button onclick="closeWinnerModal()" class="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg transition tracking-wider">
+        KONFIRMASI
       </button>
     </div>
   </div>

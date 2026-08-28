@@ -11,11 +11,9 @@ const app = express();
 let PORT = process.env.PORT || 3000;
 const IS_VERCEL = !!process.env.VERCEL;
 
-// On Vercel, use /tmp for writable SQLite DB
 const DB_PATH = IS_VERCEL ? path.join('/tmp', 'database.db') : path.join(__dirname, 'database.db');
 const EXCEL_PATH = path.join(__dirname, 'Resources', 'Perangsos Podcast Samarinda.xlsx');
 
-// If on Vercel and /tmp/database.db doesn't exist, copy local database.db if available
 if (IS_VERCEL && !fs.existsSync(DB_PATH)) {
   const localDb = path.join(__dirname, 'database.db');
   if (fs.existsSync(localDb)) {
@@ -53,9 +51,15 @@ db.serialize(() => {
       visitor_phone TEXT,
       booth_name TEXT,
       operator_name TEXT,
-      won_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      is_claimed INTEGER DEFAULT 0,
+      won_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      claimed_at DATETIME
     )
   `);
+
+  // Ensure is_claimed column exists in winners
+  db.run("ALTER TABLE winners ADD COLUMN is_claimed INTEGER DEFAULT 0", () => {});
+  db.run("ALTER TABLE winners ADD COLUMN claimed_at DATETIME", () => {});
 
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
@@ -67,14 +71,15 @@ db.serialize(() => {
     )
   `);
 
-  // Seed default 5 operators & 1 admin user
+  // Seed default operators, admin & superadmin
   const initialUsers = [
     { username: 'operator1', password: 'operator1', role: 'operator', booth_name: 'Operasi Tangkap Tawa' },
     { username: 'operator2', password: 'operator2', role: 'operator', booth_name: 'Benar Benar Podcast Live' },
     { username: 'operator3', password: 'operator3', role: 'operator', booth_name: 'Game Arena Aksi' },
     { username: 'operator4', password: 'operator4', role: 'operator', booth_name: 'Game Integritas' },
     { username: 'operator5', password: 'operator5', role: 'operator', booth_name: 'Game Tembak Koruptor' },
-    { username: 'admin', password: 'admin123', role: 'admin', booth_name: 'Admin Center' }
+    { username: 'admin', password: 'admin123', role: 'admin', booth_name: 'Admin Center' },
+    { username: 'superadmin', password: 'superadmin123', role: 'superadmin', booth_name: 'Super Admin Center' }
   ];
 
   const userStmt = db.prepare("INSERT OR IGNORE INTO users (username, password, role, booth_name) VALUES (?, ?, ?, ?)");
@@ -83,28 +88,19 @@ db.serialize(() => {
   });
   userStmt.finalize();
 
-  // Check if prizes table is empty, if so, seed from Excel
   db.get("SELECT COUNT(*) as count FROM prizes", (err, row) => {
-    if (err) {
-      console.error("Error checking prizes count:", err);
-      return;
-    }
+    if (err) return;
     if (!row || row.count === 0) {
       console.log("Seeding prize data from Excel...");
       seedPrizesFromExcel();
-    } else {
-      console.log(`Database loaded with ${row.count} prizes.`);
     }
   });
 });
 
-// Function to parse Excel and seed prizes
+// Seed Excel prizes
 function seedPrizesFromExcel(override = false) {
   try {
-    if (!fs.existsSync(EXCEL_PATH)) {
-      console.error("Excel file not found at:", EXCEL_PATH);
-      return false;
-    }
+    if (!fs.existsSync(EXCEL_PATH)) return false;
 
     const workbook = XLSX.readFile(EXCEL_PATH);
     const sheetName = workbook.SheetNames[0];
@@ -118,7 +114,7 @@ function seedPrizesFromExcel(override = false) {
       const cellA = sheet[XLSX.utils.encode_cell({ r: R, c: 0 })];
       const valA = cellA ? String(cellA.v).trim() : '';
 
-      if (R === 4) { // Row 5 (0-indexed 4)
+      if (R === 4) {
         for (let C = 1; C <= range.e.c; ++C) {
           const cell = sheet[XLSX.utils.encode_cell({ r: R, c: C })];
           headers[C] = cell ? String(cell.v).trim().replace(/\n/g, ' ') : '';
@@ -130,10 +126,7 @@ function seedPrizesFromExcel(override = false) {
       }
     }
 
-    if (spinRowIndex === -1) {
-      console.error("Row 'Games (eceran dengan spinwheel)' not found in Excel!");
-      return false;
-    }
+    if (spinRowIndex === -1) return false;
 
     const prizeData = [];
     for (let C = 1; C <= range.e.c; ++C) {
@@ -145,8 +138,6 @@ function seedPrizesFromExcel(override = false) {
         prizeData.push({ name: headerName, stock: qty });
       }
     }
-
-    console.log(`Found ${prizeData.length} prize items in Excel.`);
 
     db.serialize(() => {
       if (override) {
@@ -161,12 +152,10 @@ function seedPrizesFromExcel(override = false) {
 
     return true;
   } catch (error) {
-    console.error("Failed to seed prizes from Excel:", error);
     return false;
   }
 }
 
-// Helper: Get local network IPv4 address
 function getLocalIpAddress() {
   const interfaces = os.networkInterfaces();
   for (const name of Object.keys(interfaces)) {
@@ -181,7 +170,7 @@ function getLocalIpAddress() {
 
 // --- REST API ENDPOINTS ---
 
-// 0. User Login (Username & Password)
+// 0. User Login
 app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body || {};
   const uname = username ? username.trim().toLowerCase() : '';
@@ -192,12 +181,10 @@ app.post('/api/auth/login', (req, res) => {
   }
 
   db.get("SELECT * FROM users WHERE LOWER(username) = ?", [uname], (err, user) => {
-    if (err) {
-      return res.status(500).json({ error: "Kesalahan database" });
-    }
+    if (err) return res.status(500).json({ error: "Kesalahan database" });
 
     if (user) {
-      if (user.password === pass || (user.role === 'operator' && (pass === 'operator123' || pass === uname))) {
+      if (user.password === pass || (user.role === 'operator' && (pass === 'operator123' || pass === uname)) || (user.role === 'superadmin' && pass === 'superadmin123')) {
         return res.json({
           success: true,
           user: {
@@ -209,6 +196,13 @@ app.post('/api/auth/login', (req, res) => {
         });
       }
     } else {
+      if (uname === 'superadmin' && (pass === 'superadmin123' || pass === 'superadmin')) {
+        return res.json({
+          success: true,
+          user: { id: 0, username: 'superadmin', role: 'superadmin', booth_name: 'Super Admin Center' }
+        });
+      }
+
       if (uname === 'admin' && (pass === 'admin123' || pass === 'admin')) {
         return res.json({
           success: true,
@@ -239,9 +233,7 @@ app.post('/api/auth/login', (req, res) => {
 // Get User Accounts
 app.get('/api/users', (req, res) => {
   db.all("SELECT id, username, role, booth_name FROM users ORDER BY id ASC", [], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
+    if (err) return res.status(500).json({ error: err.message });
     res.json({ users: rows });
   });
 });
@@ -254,9 +246,7 @@ app.post('/api/users/update-password', (req, res) => {
   }
 
   db.run("UPDATE users SET password = ? WHERE LOWER(username) = ?", [new_password.trim(), username.trim().toLowerCase()], function(err) {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
+    if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true, message: `Password ${username} berhasil diperbarui!` });
   });
 });
@@ -264,10 +254,53 @@ app.post('/api/users/update-password', (req, res) => {
 // 1. Get all prizes
 app.get('/api/prizes', (req, res) => {
   db.all("SELECT * FROM prizes ORDER BY id ASC", [], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
+    if (err) return res.status(500).json({ error: err.message });
     res.json({ prizes: rows });
+  });
+});
+
+// Add New Prize (Super Admin)
+app.post('/api/prizes/add', (req, res) => {
+  const { name, initial_stock, current_stock } = req.body || {};
+  if (!name || initial_stock === undefined || current_stock === undefined) {
+    return res.status(400).json({ error: "Nama dan stok wajib diisi!" });
+  }
+
+  db.run(
+    "INSERT INTO prizes (name, initial_stock, current_stock) VALUES (?, ?, ?)",
+    [name.trim(), parseInt(initial_stock, 10), parseInt(current_stock, 10)],
+    function(err) {
+      if (err) return res.status(400).json({ error: "Nama item hadiah sudah ada!" });
+      res.json({ success: true, message: "Item hadiah baru berhasil ditambahkan!", id: this.lastID });
+    }
+  );
+});
+
+// Edit Prize Details & Stocks (Super Admin)
+app.post('/api/prizes/edit', (req, res) => {
+  const { id, name, initial_stock, current_stock } = req.body || {};
+  if (!id || !name || initial_stock === undefined || current_stock === undefined) {
+    return res.status(400).json({ error: "Data item tidak lengkap!" });
+  }
+
+  db.run(
+    "UPDATE prizes SET name = ?, initial_stock = ?, current_stock = ? WHERE id = ?",
+    [name.trim(), parseInt(initial_stock, 10), parseInt(current_stock, 10), id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true, message: "Item hadiah berhasil diperbarui!" });
+    }
+  );
+});
+
+// Delete Prize (Super Admin)
+app.post('/api/prizes/delete', (req, res) => {
+  const { id } = req.body || {};
+  if (!id) return res.status(400).json({ error: "ID wajib diisi" });
+
+  db.run("DELETE FROM prizes WHERE id = ?", [id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true, message: "Item hadiah telah dihapus." });
   });
 });
 
@@ -276,9 +309,7 @@ app.post('/api/spin', (req, res) => {
   const { visitor_name, visitor_phone, booth_name, operator_name } = req.body;
 
   db.all("SELECT * FROM prizes WHERE current_stock > 0", [], (err, activePrizes) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
+    if (err) return res.status(500).json({ error: err.message });
 
     if (!activePrizes || activePrizes.length === 0) {
       return res.status(400).json({ error: "Stok semua hadiah telah habis!" });
@@ -300,9 +331,7 @@ app.post('/api/spin', (req, res) => {
       "UPDATE prizes SET current_stock = current_stock - 1 WHERE id = ? AND current_stock > 0",
       [selectedPrize.id],
       function (updateErr) {
-        if (updateErr) {
-          return res.status(500).json({ error: updateErr.message });
-        }
+        if (updateErr) return res.status(500).json({ error: updateErr.message });
 
         if (this.changes === 0) {
           return res.status(409).json({ error: "Stok terupdate, silakan coba lagi." });
@@ -316,14 +345,10 @@ app.post('/api/spin', (req, res) => {
         const opName = operator_name ? operator_name.trim() : 'Operator';
 
         db.run(
-          `INSERT INTO winners (prize_id, prize_name, visitor_name, visitor_phone, booth_name, operator_name)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO winners (prize_id, prize_name, visitor_name, visitor_phone, booth_name, operator_name, is_claimed)
+           VALUES (?, ?, ?, ?, ?, ?, 0)`,
           [selectedPrize.id, selectedPrize.name, vName, vPhone, bName, opName],
           function (insertErr) {
-            if (insertErr) {
-              console.error("Error logging winner:", insertErr);
-            }
-
             res.json({
               success: true,
               prize: {
@@ -345,14 +370,28 @@ app.post('/api/spin', (req, res) => {
   });
 });
 
-// 3. Get Winner History
+// 3. Get Winner History (Sorted: Unclaimed first, then Claimed at bottom)
 app.get('/api/history', (req, res) => {
-  db.all("SELECT * FROM winners ORDER BY won_at DESC LIMIT 500", [], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
+  db.all("SELECT * FROM winners ORDER BY is_claimed ASC, won_at DESC LIMIT 500", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
     res.json({ winners: rows });
   });
+});
+
+// Confirm Prize Claim / Pickup (Green Checkmark)
+app.post('/api/winners/claim', (req, res) => {
+  const { id, is_claimed } = req.body || {};
+  if (!id) return res.status(400).json({ error: "ID pemenang wajib diisi!" });
+
+  const claimVal = is_claimed ? 1 : 0;
+  db.run(
+    "UPDATE winners SET is_claimed = ?, claimed_at = CURRENT_TIMESTAMP WHERE id = ?",
+    [claimVal, id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true, message: claimVal ? "Penyerahan hadiah telah dikonfirmasi!" : "Status konfirmasi dibatalkan." });
+    }
+  );
 });
 
 // 4. Reset Stock to Initial Values
@@ -387,9 +426,7 @@ app.post('/api/prizes/update', (req, res) => {
   }
 
   db.run("UPDATE prizes SET current_stock = ? WHERE id = ?", [current_stock, id], function (err) {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
+    if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true, message: "Stok hadiah diperbarui" });
   });
 });
@@ -397,9 +434,7 @@ app.post('/api/prizes/update', (req, res) => {
 // 7. Export Winner History to Excel
 app.get('/api/export', (req, res) => {
   db.all("SELECT * FROM winners ORDER BY won_at ASC", [], (err, rows) => {
-    if (err) {
-      return res.status(500).send("Error exporting data");
-    }
+    if (err) return res.status(500).send("Error exporting data");
 
     const exportData = rows.map((r, idx) => ({
       "No": idx + 1,
@@ -408,7 +443,9 @@ app.get('/api/export', (req, res) => {
       "No HP": r.visitor_phone,
       "Nama Booth": r.booth_name,
       "Operator": r.operator_name,
-      "Hadiah Diperoleh": r.prize_name
+      "Hadiah Diperoleh": r.prize_name,
+      "Status Pengambilan": r.is_claimed ? "Sudah Diambil" : "Belum Diambil",
+      "Waktu Pengambilan": r.claimed_at || "-"
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);

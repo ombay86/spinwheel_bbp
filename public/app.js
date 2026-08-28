@@ -43,7 +43,6 @@ function checkUserSession() {
     } catch (e) {}
   }
 
-  // Not logged in -> Show Landing Login View
   showLoginView();
 }
 
@@ -55,6 +54,8 @@ function autoFillPasswordSuggestion() {
   const uname = select.value;
   if (uname === 'admin') {
     passInput.value = 'admin123';
+  } else if (uname === 'superadmin') {
+    passInput.value = 'superadmin123';
   } else {
     passInput.value = uname; // operator1, operator2, etc.
   }
@@ -104,7 +105,6 @@ function showAppView() {
   document.getElementById('view-login').classList.add('hidden');
   document.getElementById('view-app').classList.remove('hidden');
 
-  // Update Header & User Badge
   const userBadge = document.getElementById('user-badge');
   const opInput = document.getElementById('operator-name-input');
   const boothSelect = document.getElementById('booth-select');
@@ -116,16 +116,16 @@ function showAppView() {
 
     if (opInput) opInput.value = currentUser.username;
 
-    // Set Booth Select according to account
     if (boothSelect && currentUser.booth_name) {
       boothSelect.value = currentUser.booth_name;
     }
 
-    if (currentUser.role === 'admin') {
+    // Role specific tab visibility
+    if (currentUser.role === 'admin' || currentUser.role === 'superadmin') {
+      if (navAdminBtn) navAdminBtn.style.display = '';
       switchTab('admin');
     } else {
       switchTab('operator');
-      // Hide Admin Tab for operators
       if (navAdminBtn) navAdminBtn.style.display = 'none';
     }
   }
@@ -153,21 +153,35 @@ function switchTab(tabName) {
     navAdmin.className = "px-2.5 py-1 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white hover:bg-slate-800";
     resizeCanvasToFit();
   } else {
-    // If not admin role, block access
-    if (currentUser && currentUser.role !== 'admin') {
-      alert("Akses Admin hanya untuk akun Admin!");
+    if (currentUser && currentUser.role !== 'admin' && currentUser.role !== 'superadmin') {
+      alert("Akses Dashboard hanya untuk Admin & Super Admin!");
       return;
     }
     opTab.classList.add('hidden');
     adminTab.classList.remove('hidden');
     navOp.className = "px-2.5 py-1 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white hover:bg-slate-800";
     navAdmin.className = "px-2.5 py-1 rounded-lg text-xs font-bold transition bg-amber-500 text-slate-950 shadow";
+    
+    // Update Superadmin Controls Visibility
+    const btnAdd = document.getElementById('btn-add-prize');
+    const btnReset = document.getElementById('btn-reset-stock');
+    const adminTitle = document.getElementById('admin-title-role');
+
+    if (currentUser.role === 'superadmin') {
+      if (btnAdd) btnAdd.classList.remove('hidden');
+      if (btnReset) btnReset.classList.remove('hidden');
+      if (adminTitle) adminTitle.textContent = "Dashboard Super Admin";
+    } else {
+      if (btnAdd) btnAdd.classList.add('hidden');
+      if (btnReset) btnReset.classList.add('hidden');
+      if (adminTitle) adminTitle.textContent = "Dashboard Admin";
+    }
+
     renderAdminStockGrid();
     renderHistoryTable();
   }
 }
 
-// Handle Booth Selector
 function onBoothChange() {
   const select = document.getElementById('booth-select');
   const customInput = document.getElementById('custom-booth-input');
@@ -187,7 +201,6 @@ function getSelectedBooth() {
   return select.value;
 }
 
-// Fetch Prizes & Winner History from API
 async function loadPrizesAndHistory() {
   try {
     const prizesRes = await fetch('/api/prizes');
@@ -209,7 +222,6 @@ async function loadPrizesAndHistory() {
   }
 }
 
-// Update Top Badge Stock Count
 function updateStockBadge() {
   const totalRemaining = prizes.reduce((sum, p) => sum + p.current_stock, 0);
   const totalInitial = prizes.reduce((sum, p) => sum + p.initial_stock, 0);
@@ -332,7 +344,16 @@ function drawWheel() {
 async function triggerSpin() {
   if (isSpinning) return;
   if (activePrizes.length === 0) {
-    alert("Stok semua hadiah telah habis! Harap isi ulang stok di menu Admin.");
+    if (typeof Swal === 'function') {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Stok Hadiah Habis!',
+        text: 'Harap hubungi Admin / Superadmin untuk reset atau tambah stok hadiah.',
+        customClass: { popup: 'swal2-popup-dark' }
+      });
+    } else {
+      alert("Stok semua hadiah telah habis!");
+    }
     return;
   }
 
@@ -458,9 +479,12 @@ function closeWinnerModal() {
   document.getElementById('visitor-phone').value = '';
 }
 
+// Admin Panel Stock Grid Rendering (Only Superadmin can edit!)
 function renderAdminStockGrid() {
   const container = document.getElementById('stock-grid');
   if (!container) return;
+
+  const isSuperAdmin = currentUser && currentUser.role === 'superadmin';
 
   container.innerHTML = prizes.map(p => {
     const percent = Math.round((p.current_stock / p.initial_stock) * 100);
@@ -481,38 +505,20 @@ function renderAdminStockGrid() {
 
         <div class="flex items-center justify-between text-[10px] pt-0.5">
           <span class="text-slate-400">Sisa: ${percent}%</span>
-          <button onclick="editStockPrompt(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${p.current_stock})" class="text-amber-400 hover:underline font-semibold">
-            <i class="fa-solid fa-pen-to-square mr-1"></i> Edit
-          </button>
+          ${isSuperAdmin ? `
+            <button onclick="openEditPrizeSweetAlert(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${p.initial_stock}, ${p.current_stock})" class="text-amber-400 hover:text-amber-300 font-bold bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+              <i class="fa-solid fa-pen-to-square mr-1"></i> Edit
+            </button>
+          ` : `
+            <span class="text-slate-500 font-semibold"><i class="fa-solid fa-lock text-[9px] mr-1"></i> Stok Terkunci</span>
+          `}
         </div>
       </div>
     `;
   }).join('');
 }
 
-async function editStockPrompt(id, name, currentStock) {
-  const newStockStr = prompt(`Ubah stok sisa untuk: ${name}`, currentStock);
-  if (newStockStr === null) return;
-  const newStock = parseInt(newStockStr, 10);
-  if (isNaN(newStock) || newStock < 0) {
-    alert("Jumlah stok tidak valid!");
-    return;
-  }
-
-  try {
-    const res = await fetch('/api/prizes/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, current_stock: newStock })
-    });
-    if (res.ok) {
-      loadPrizesAndHistory();
-    }
-  } catch (err) {
-    alert("Gagal memperbarui stok.");
-  }
-}
-
+// Render Winner History Table (Unclaimed TOP, Claimed BOTTOM with Green Checkmark)
 function renderHistoryTable() {
   const tbody = document.getElementById('history-tbody');
   if (!tbody) return;
@@ -522,22 +528,77 @@ function renderHistoryTable() {
     return;
   }
 
-  tbody.innerHTML = winnerHistory.map((r, idx) => {
+  // Sort history: Unclaimed (0) top, Claimed (1) bottom
+  const sorted = [...winnerHistory].sort((a, b) => {
+    if (a.is_claimed !== b.is_claimed) {
+      return a.is_claimed - b.is_claimed; // 0 comes before 1
+    }
+    return new Date(b.won_at) - new Date(a.won_at);
+  });
+
+  tbody.innerHTML = sorted.map((r, idx) => {
     const dateObj = new Date(r.won_at);
     const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     const dateStr = dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
 
+    const isClaimed = r.is_claimed === 1;
+
     return `
-      <tr class="hover:bg-slate-800/50 transition text-[11px]">
+      <tr class="${isClaimed ? 'bg-slate-900/60 opacity-70' : 'bg-slate-800/40 hover:bg-slate-800'} transition text-[11px]">
         <td class="p-2 font-bold text-slate-500">${idx + 1}</td>
         <td class="p-2 text-slate-300 font-mono text-[10px]">${dateStr} ${timeStr}</td>
         <td class="p-2 font-semibold text-amber-300">${r.booth_name || 'Booth 1'}</td>
-        <td class="p-2 text-white font-medium">${r.visitor_name || 'Pengunjung'} <span class="text-slate-500 text-[10px]">(${r.visitor_phone || '-'})</span></td>
-        <td class="p-2 text-slate-400">${r.operator_name || '-'}</td>
-        <td class="p-2 font-bold text-emerald-400">${r.prize_name}</td>
+        <td class="p-2 text-white font-medium">
+          <span class="${isClaimed ? 'line-through text-slate-400' : ''}">${r.visitor_name || 'Pengunjung'}</span> 
+          <span class="text-slate-500 text-[10px]">(${r.visitor_phone || '-'})</span>
+        </td>
+        <td class="p-2 font-bold ${isClaimed ? 'text-slate-400' : 'text-emerald-400'}">${r.prize_name}</td>
+        <td class="p-2 text-center">
+          ${isClaimed ? `
+            <button onclick="toggleClaimPrize(${r.id}, 0)" title="Klik untuk membatalkan konfirmasi" class="inline-flex items-center space-x-1 px-2.5 py-1 bg-emerald-500/20 text-emerald-400 font-bold rounded-lg border border-emerald-500/40 hover:bg-rose-500/20 hover:text-rose-400 transition">
+              <i class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
+              <span>Sudah Diambil</span>
+            </button>
+          ` : `
+            <button onclick="toggleClaimPrize(${r.id}, 1)" title="Konfirmasi pengambilan hadiah" class="inline-flex items-center space-x-1 px-2.5 py-1 bg-slate-800 hover:bg-emerald-600 text-amber-400 hover:text-white font-bold rounded-lg border border-amber-500/40 hover:border-emerald-500 transition shadow">
+              <i class="fa-solid fa-check text-xs"></i>
+              <span>Konfirmasi Ambil</span>
+            </button>
+          `}
+        </td>
       </tr>
     `;
   }).join('');
+}
+
+// Toggle Prize Pickup Claim Status
+async function toggleClaimPrize(id, newStatus) {
+  try {
+    const res = await fetch('/api/winners/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, is_claimed: newStatus })
+    });
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      if (typeof Swal === 'function') {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: newStatus ? 'success' : 'info',
+          title: data.message,
+          showConfirmButton: false,
+          timer: 2000,
+          background: '#1e293b',
+          color: '#ffffff'
+        });
+      }
+      loadPrizesAndHistory();
+    }
+  } catch (err) {
+    alert("Gagal memperbarui status pengambilan.");
+  }
 }
 
 function filterHistoryTable() {
@@ -547,6 +608,190 @@ function filterHistoryTable() {
   rows.forEach(row => {
     const text = row.textContent.toLowerCase();
     row.style.display = text.includes(query) ? '' : 'none';
+  });
+}
+
+// --- SWEETALERT2 FORMS FOR SUPERADMIN ---
+
+// 1. Add New Prize SweetAlert Form
+function openAddPrizeSweetAlert() {
+  if (typeof Swal !== 'function') return;
+
+  Swal.fire({
+    title: 'Tambah Item Hadiah Baru',
+    html: `
+      <div class="text-left space-y-3 text-xs">
+        <div>
+          <label class="block font-bold mb-1">Nama Hadiah:</label>
+          <input id="swal-add-name" class="swal2-input !m-0 !w-full" placeholder="Contoh: Kaos Benar Benar">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-bold mb-1">Stok Total:</label>
+            <input id="swal-add-initial" type="number" class="swal2-input !m-0 !w-full" value="50">
+          </div>
+          <div>
+            <label class="block font-bold mb-1">Sisa Stok Saat Ini:</label>
+            <input id="swal-add-current" type="number" class="swal2-input !m-0 !w-full" value="50">
+          </div>
+        </div>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: 'Simpan Hadiah',
+    cancelButtonText: 'Batal',
+    customClass: { popup: 'swal2-popup-dark' },
+    preConfirm: () => {
+      const name = document.getElementById('swal-add-name').value.trim();
+      const initial_stock = document.getElementById('swal-add-initial').value;
+      const current_stock = document.getElementById('swal-add-current').value;
+
+      if (!name) {
+        Swal.showValidationMessage('Nama hadiah wajib diisi!');
+        return false;
+      }
+      return { name, initial_stock, current_stock };
+    }
+  }).then(async (result) => {
+    if (result.isConfirmed && result.value) {
+      try {
+        const res = await fetch('/api/prizes/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(result.value)
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          Swal.fire({ icon: 'success', title: 'Berhasil!', text: data.message, customClass: { popup: 'swal2-popup-dark' } });
+          loadPrizesAndHistory();
+        } else {
+          Swal.fire({ icon: 'error', title: 'Gagal', text: data.error, customClass: { popup: 'swal2-popup-dark' } });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Koneksi gagal.', customClass: { popup: 'swal2-popup-dark' } });
+      }
+    }
+  });
+}
+
+// 2. Edit Prize Details SweetAlert Form
+function openEditPrizeSweetAlert(id, name, initialStock, currentStock) {
+  if (typeof Swal !== 'function') return;
+
+  Swal.fire({
+    title: 'Edit Item Hadiah',
+    html: `
+      <div class="text-left space-y-3 text-xs">
+        <div>
+          <label class="block font-bold mb-1">Nama Hadiah:</label>
+          <input id="swal-edit-name" class="swal2-input !m-0 !w-full" value="${name}">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-bold mb-1">Stok Total Awal:</label>
+            <input id="swal-edit-initial" type="number" class="swal2-input !m-0 !w-full" value="${initialStock}">
+          </div>
+          <div>
+            <label class="block font-bold mb-1">Sisa Stok Saat Ini:</label>
+            <input id="swal-edit-current" type="number" class="swal2-input !m-0 !w-full" value="${currentStock}">
+          </div>
+        </div>
+      </div>
+    `,
+    showCancelButton: true,
+    showDenyButton: true,
+    confirmButtonText: 'Simpan Perubahan',
+    denyButtonText: 'Hapus Item',
+    cancelButtonText: 'Batal',
+    customClass: { popup: 'swal2-popup-dark' },
+    preConfirm: () => {
+      const editName = document.getElementById('swal-edit-name').value.trim();
+      const initial_stock = document.getElementById('swal-edit-initial').value;
+      const current_stock = document.getElementById('swal-edit-current').value;
+
+      if (!editName) {
+        Swal.showValidationMessage('Nama hadiah wajib diisi!');
+        return false;
+      }
+      return { id, name: editName, initial_stock, current_stock };
+    }
+  }).then(async (result) => {
+    if (result.isConfirmed && result.value) {
+      try {
+        const res = await fetch('/api/prizes/edit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(result.value)
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          Swal.fire({ icon: 'success', title: 'Berhasil!', text: data.message, timer: 1500, showConfirmButton: false, customClass: { popup: 'swal2-popup-dark' } });
+          loadPrizesAndHistory();
+        } else {
+          Swal.fire({ icon: 'error', title: 'Gagal', text: data.error, customClass: { popup: 'swal2-popup-dark' } });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Gagal mengubah item.', customClass: { popup: 'swal2-popup-dark' } });
+      }
+    } else if (result.isDenied) {
+      // Confirm Delete
+      Swal.fire({
+        title: `Hapus ${name}?`,
+        text: "Item hadiah ini akan dihapus dari daftar spinwheel!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        confirmButtonText: 'Ya, Hapus!',
+        customClass: { popup: 'swal2-popup-dark' }
+      }).then(async (delRes) => {
+        if (delRes.isConfirmed) {
+          try {
+            const res = await fetch('/api/prizes/delete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id })
+            });
+            if (res.ok) {
+              Swal.fire({ icon: 'success', title: 'Terhapus!', timer: 1500, showConfirmButton: false, customClass: { popup: 'swal2-popup-dark' } });
+              loadPrizesAndHistory();
+            }
+          } catch (e) {}
+        }
+      });
+    }
+  });
+}
+
+// 3. Reset Stock SweetAlert Form (Superadmin Only)
+function resetStockSweetAlert() {
+  if (typeof Swal !== 'function') return;
+
+  Swal.fire({
+    title: 'Reset Stok Hadiah?',
+    text: 'Semua stok item akan dikembalikan ke data stok awal dari Excel.',
+    icon: 'warning',
+    showCancelButton: true,
+    showDenyButton: true,
+    confirmButtonText: 'Reset Stok Sahaja',
+    denyButtonText: 'Reset Stok & HAPUS RIWAYAT',
+    cancelButtonText: 'Batal',
+    customClass: { popup: 'swal2-popup-dark' }
+  }).then(async (result) => {
+    if (result.isConfirmed || result.isDenied) {
+      const clearHistory = result.isDenied;
+      try {
+        const res = await fetch('/api/prizes/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clear_history: clearHistory })
+        });
+        const data = await res.json();
+        Swal.fire({ icon: 'success', title: 'Berhasil Reset!', text: data.message, customClass: { popup: 'swal2-popup-dark' } });
+        loadPrizesAndHistory();
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan.', customClass: { popup: 'swal2-popup-dark' } });
+      }
+    }
   });
 }
 
@@ -565,24 +810,6 @@ function renderDrawerStockList() {
 function toggleStockDrawer() {
   const drawer = document.getElementById('stock-drawer');
   drawer.classList.toggle('hidden');
-}
-
-async function resetStockPrompt() {
-  if (!confirm("Apakah Anda yakin ingin mengembalikan semua stok ke data awal Excel?")) return;
-
-  const clearHist = confirm("Apakah Anda juga ingin MENGHAPUS SELURUH RIWAYAT pemenang?");
-  try {
-    const res = await fetch('/api/prizes/reset', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clear_history: clearHist })
-    });
-    const data = await res.json();
-    alert(data.message);
-    loadPrizesAndHistory();
-  } catch (err) {
-    alert("Gagal mereset stok.");
-  }
 }
 
 function exportToExcel() {
