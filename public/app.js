@@ -5,6 +5,10 @@ let activePrizes = []; // Prizes with stock > 0
 let winnerHistory = [];
 let isSpinning = false;
 
+// Pagination State
+let historyPage = 1;
+let historyPageSize = 50;
+
 // Authentication State
 let currentUser = null;
 
@@ -517,96 +521,154 @@ function renderAdminStockGrid() {
   }).join('');
 }
 
-// Render Winner History Table (Unclaimed TOP, Claimed BOTTOM with Green Checkmark)
+// Pagination Control Functions
+function changePageSize(size) {
+  historyPageSize = parseInt(size, 10);
+  historyPage = 1;
+  renderHistoryTable();
+}
+
+function goToHistoryPage(page) {
+  historyPage = page;
+  renderHistoryTable();
+}
+
+function filterHistoryTable() {
+  historyPage = 1; // Reset to page 1 on search
+  renderHistoryTable();
+}
+
+// Render Winner History Table (With Pagination & Search Filter)
 function renderHistoryTable() {
   const tbody = document.getElementById('history-tbody');
+  const infoEl = document.getElementById('history-pagination-info');
+  const controlsEl = document.getElementById('history-pagination-controls');
   if (!tbody) return;
 
-  if (winnerHistory.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500">Belum ada riwayat pengundian.</td></tr>`;
-    return;
+  const searchQuery = document.getElementById('history-search') ? document.getElementById('history-search').value.trim().toLowerCase() : '';
+
+  // 1. Filter history by search query
+  let filtered = winnerHistory;
+  if (searchQuery) {
+    filtered = winnerHistory.filter(r => {
+      const vName = (r.visitor_name || '').toLowerCase();
+      const bName = (r.booth_name || '').toLowerCase();
+      const pName = (r.prize_name || '').toLowerCase();
+      const opName = (r.operator_name || '').toLowerCase();
+      return vName.includes(searchQuery) || bName.includes(searchQuery) || pName.includes(searchQuery) || opName.includes(searchQuery);
+    });
   }
 
-  // Sort history: Unclaimed (0) top, Claimed (1) bottom
-  const sorted = [...winnerHistory].sort((a, b) => {
+  // 2. Sort history: Unclaimed (0) top, Claimed (1) bottom
+  const sorted = [...filtered].sort((a, b) => {
     if (a.is_claimed !== b.is_claimed) {
-      return a.is_claimed - b.is_claimed; // 0 comes before 1
+      return a.is_claimed - b.is_claimed;
     }
     return new Date(b.won_at) - new Date(a.won_at);
   });
 
-  tbody.innerHTML = sorted.map((r, idx) => {
-    const dateObj = new Date(r.won_at);
-    const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-    const dateStr = dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+  const totalItems = sorted.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / historyPageSize));
 
-    const isClaimed = r.is_claimed === 1;
+  if (historyPage > totalPages) historyPage = totalPages;
+  if (historyPage < 1) historyPage = 1;
 
-    return `
-      <tr class="${isClaimed ? 'bg-slate-900/60 opacity-70' : 'bg-slate-800/40 hover:bg-slate-800'} transition text-[11px]">
-        <td class="p-2 font-bold text-slate-500">${idx + 1}</td>
-        <td class="p-2 text-slate-300 font-mono text-[10px]">${dateStr} ${timeStr}</td>
-        <td class="p-2 font-semibold text-amber-300">${r.booth_name || 'Booth 1'}</td>
-        <td class="p-2 text-white font-medium">
-          <span class="${isClaimed ? 'line-through text-slate-400' : ''}">${r.visitor_name || 'Pengunjung'}</span>
-        </td>
-        <td class="p-2 font-bold ${isClaimed ? 'text-slate-400' : 'text-emerald-400'}">${r.prize_name}</td>
-        <td class="p-2 text-center">
-          ${isClaimed ? `
-            <button onclick="toggleClaimPrize(${r.id}, 0)" title="Klik untuk membatalkan konfirmasi" class="inline-flex items-center space-x-1 px-2.5 py-1 bg-emerald-500/20 text-emerald-400 font-bold rounded-lg border border-emerald-500/40 hover:bg-rose-500/20 hover:text-rose-400 transition">
-              <i class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
-              <span>Sudah Diambil</span>
-            </button>
-          ` : `
-            <button onclick="toggleClaimPrize(${r.id}, 1)" title="Konfirmasi pengambilan hadiah" class="inline-flex items-center space-x-1 px-2.5 py-1 bg-slate-800 hover:bg-emerald-600 text-amber-400 hover:text-white font-bold rounded-lg border border-amber-500/40 hover:border-emerald-500 transition shadow">
-              <i class="fa-solid fa-check text-xs"></i>
-              <span>Konfirmasi Ambil</span>
-            </button>
-          `}
-        </td>
-      </tr>
-    `;
-  }).join('');
-}
+  const startIndex = (historyPage - 1) * historyPageSize;
+  const endIndex = Math.min(startIndex + historyPageSize, totalItems);
+  const pageItems = sorted.slice(startIndex, endIndex);
 
-// Toggle Prize Pickup Claim Status
-async function toggleClaimPrize(id, newStatus) {
-  try {
-    const res = await fetch('/api/winners/claim', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, is_claimed: newStatus })
-    });
-    const data = await res.json();
+  // Render Table Rows
+  if (totalItems === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500 font-semibold">Tidak ada data pemenang ${searchQuery ? 'yang cocok dengan pencarian' : ''}.</td></tr>`;
+  } else {
+    tbody.innerHTML = pageItems.map((r, idx) => {
+      const dateObj = new Date(r.won_at);
+      const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      const dateStr = dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+      const isClaimed = r.is_claimed === 1;
 
-    if (res.ok && data.success) {
-      if (typeof Swal === 'function') {
-        Swal.fire({
-          toast: true,
-          position: 'top-end',
-          icon: newStatus ? 'success' : 'info',
-          title: data.message,
-          showConfirmButton: false,
-          timer: 2000,
-          background: '#1e293b',
-          color: '#ffffff'
-        });
-      }
-      loadPrizesAndHistory();
-    }
-  } catch (err) {
-    alert("Gagal memperbarui status pengambilan.");
+      return `
+        <tr class="${isClaimed ? 'bg-slate-900/60 opacity-70' : 'bg-slate-800/40 hover:bg-slate-800'} transition text-[11px]">
+          <td class="p-2 font-bold text-slate-500">${startIndex + idx + 1}</td>
+          <td class="p-2 text-slate-300 font-mono text-[10px]">${dateStr} ${timeStr}</td>
+          <td class="p-2 font-semibold text-amber-300">${r.booth_name || 'Booth 1'}</td>
+          <td class="p-2 text-white font-medium">
+            <span class="${isClaimed ? 'line-through text-slate-400' : ''}">${r.visitor_name || 'Pengunjung'}</span>
+          </td>
+          <td class="p-2 font-bold ${isClaimed ? 'text-slate-400' : 'text-emerald-400'}">${r.prize_name}</td>
+          <td class="p-2 text-center">
+            ${isClaimed ? `
+              <button onclick="toggleClaimPrize(${r.id}, 0)" title="Klik untuk membatalkan konfirmasi" class="inline-flex items-center space-x-1 px-2.5 py-1 bg-emerald-500/20 text-emerald-400 font-bold rounded-lg border border-emerald-500/40 hover:bg-rose-500/20 hover:text-rose-400 transition">
+                <i class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
+                <span>Sudah Diambil</span>
+              </button>
+            ` : `
+              <button onclick="toggleClaimPrize(${r.id}, 1)" title="Konfirmasi pengambilan hadiah" class="inline-flex items-center space-x-1 px-2.5 py-1 bg-slate-800 hover:bg-emerald-600 text-amber-400 hover:text-white font-bold rounded-lg border border-amber-500/40 hover:border-emerald-500 transition shadow">
+                <i class="fa-solid fa-check text-xs"></i>
+                <span>Konfirmasi Ambil</span>
+              </button>
+            `}
+          </td>
+        </tr>
+      `;
+    }).join('');
   }
-}
 
-function filterHistoryTable() {
-  const query = document.getElementById('history-search').value.toLowerCase();
-  const rows = document.querySelectorAll('#history-tbody tr');
+  // Update Summary Info
+  if (infoEl) {
+    if (totalItems === 0) {
+      infoEl.textContent = "Menampilkan 0 dari 0 pemenang";
+    } else {
+      infoEl.textContent = `Menampilkan ${(startIndex + 1).toLocaleString('id-ID')} - ${endIndex.toLocaleString('id-ID')} dari ${totalItems.toLocaleString('id-ID')} pemenang`;
+    }
+  }
 
-  rows.forEach(row => {
-    const text = row.textContent.toLowerCase();
-    row.style.display = text.includes(query) ? '' : 'none';
-  });
+  // Update Pagination Controls
+  if (controlsEl) {
+    let btnHtml = '';
+
+    const isFirst = historyPage === 1;
+    btnHtml += `
+      <button onclick="goToHistoryPage(1)" ${isFirst ? 'disabled' : ''} class="px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-300 rounded-md font-bold text-[11px]" title="Halaman Pertama">
+        <i class="fa-solid fa-angles-left"></i>
+      </button>
+      <button onclick="goToHistoryPage(${historyPage - 1})" ${isFirst ? 'disabled' : ''} class="px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-300 rounded-md font-bold text-[11px]" title="Halaman Sebelumnya">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+    `;
+
+    let startP = Math.max(1, historyPage - 2);
+    let endP = Math.min(totalPages, historyPage + 2);
+
+    if (startP > 1) {
+      btnHtml += `<span class="px-1 text-slate-500">...</span>`;
+    }
+
+    for (let p = startP; p <= endP; p++) {
+      const isActive = p === historyPage;
+      btnHtml += `
+        <button onclick="goToHistoryPage(${p})" class="px-2.5 py-1 ${isActive ? 'bg-amber-500 text-slate-950 font-black' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold'} rounded-md text-[11px] transition">
+          ${p}
+        </button>
+      `;
+    }
+
+    if (endP < totalPages) {
+      btnHtml += `<span class="px-1 text-slate-500">...</span>`;
+    }
+
+    const isLast = historyPage === totalPages;
+    btnHtml += `
+      <button onclick="goToHistoryPage(${historyPage + 1})" ${isLast ? 'disabled' : ''} class="px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-300 rounded-md font-bold text-[11px]" title="Halaman Berikutnya">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
+      <button onclick="goToHistoryPage(${totalPages})" ${isLast ? 'disabled' : ''} class="px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-300 rounded-md font-bold text-[11px]" title="Halaman Terakhir">
+        <i class="fa-solid fa-angles-right"></i>
+      </button>
+    `;
+
+    controlsEl.innerHTML = btnHtml;
+  }
 }
 
 // --- SWEETALERT2 FORMS FOR SUPERADMIN ---

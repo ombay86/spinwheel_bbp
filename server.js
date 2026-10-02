@@ -372,7 +372,7 @@ app.post('/api/spin', (req, res) => {
 
 // 3. Get Winner History (Sorted: Unclaimed first, then Claimed at bottom)
 app.get('/api/history', (req, res) => {
-  db.all("SELECT * FROM winners ORDER BY is_claimed ASC, won_at DESC LIMIT 500", [], (err, rows) => {
+  db.all("SELECT * FROM winners ORDER BY is_claimed ASC, won_at DESC", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ winners: rows });
   });
